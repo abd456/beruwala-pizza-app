@@ -1,4 +1,4 @@
-package com.beruwala.pizza.beruwala_pizza
+package com.beruwala.pizza
 
 import io.flutter.embedding.android.FlutterActivity
 

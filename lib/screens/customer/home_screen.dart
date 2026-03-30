@@ -1,0 +1,179 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/menu_provider.dart';
+import '../../providers/cart_provider.dart';
+import '../../utils/app_colors.dart';
+import '../../utils/app_constants.dart';
+import '../../utils/app_routes.dart';
+import '../../widgets/menu_item_card.dart';
+
+class HomeScreen extends ConsumerWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final menuItems = ref.watch(searchedMenuItemsProvider);
+    final selectedCategory = ref.watch(selectedCategoryProvider);
+    final cartCount = ref.watch(cartItemCountProvider);
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text(AppConstants.appName),
+        actions: [
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.shopping_cart_outlined),
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
+              ),
+              if (cartCount > 0)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppColors.accent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$cartCount',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: TextField(
+              onChanged: (value) =>
+                  ref.read(menuSearchQueryProvider.notifier).state = value,
+              decoration: InputDecoration(
+                hintText: 'Search menu...',
+                prefixIcon: const Icon(Icons.search, color: AppColors.textGrey),
+                filled: true,
+                fillColor: AppColors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+
+          // Category filter chips
+          SizedBox(
+            height: 48,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                _CategoryChip(
+                  label: 'All',
+                  selected: selectedCategory == null,
+                  onTap: () => ref
+                      .read(selectedCategoryProvider.notifier)
+                      .state = null,
+                ),
+                ...AppConstants.menuCategories.map((cat) => _CategoryChip(
+                      label: cat,
+                      selected: selectedCategory == cat,
+                      onTap: () => ref
+                          .read(selectedCategoryProvider.notifier)
+                          .state = cat,
+                    )),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Menu grid
+          Expanded(
+            child: menuItems.when(
+              data: (items) {
+                if (items.isEmpty) {
+                  return const Center(
+                    child: Text('No items found'),
+                  );
+                }
+                return GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.72,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return MenuItemCard(
+                      item: item,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.itemDetail,
+                        arguments: item,
+                      ),
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+              error: (error, _) => Center(
+                child: Text('Error: $error'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: FilterChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        selectedColor: AppColors.primary,
+        backgroundColor: AppColors.white,
+        labelStyle: TextStyle(
+          color: selected ? AppColors.white : AppColors.textDark,
+          fontWeight: FontWeight.w600,
+        ),
+        checkmarkColor: AppColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,374 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/order_model.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/cart_provider.dart';
+import '../../providers/menu_provider.dart';
+import '../../utils/app_colors.dart';
+import '../../utils/app_constants.dart';
+import '../../utils/app_routes.dart';
+
+class CheckoutScreen extends ConsumerStatefulWidget {
+  const CheckoutScreen({super.key});
+
+  @override
+  ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
+}
+
+class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _noteController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  bool _isDelivery = true;
+  bool _placing = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _placeOrder() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    // Check if logged in
+    final user = ref.read(authStateProvider).valueOrNull;
+    if (user == null) {
+      // Redirect to login, then come back
+      await Navigator.pushNamed(context, AppRoutes.phoneEntry);
+      // After login, user might come back — re-check
+      if (!mounted) return;
+      final userAfterLogin = ref.read(authStateProvider).valueOrNull;
+      if (userAfterLogin == null) return;
+    }
+
+    setState(() => _placing = true);
+
+    try {
+      final cartItems = ref.read(cartProvider);
+      final subtotal = ref.read(cartSubtotalProvider);
+      final deliveryFee = _isDelivery ? AppConstants.deliveryFee : 0.0;
+      final firestoreService = ref.read(firestoreServiceProvider);
+      final currentUser = ref.read(authStateProvider).valueOrNull;
+
+      final orderNumber = await firestoreService.getNextOrderNumber();
+
+      final order = OrderModel(
+        id: '',
+        orderNumber: orderNumber,
+        customerId: currentUser?.uid ?? '',
+        customerName: _nameController.text.trim(),
+        customerPhone: '${AppConstants.countryCode}${_phoneController.text.trim()}',
+        type: _isDelivery ? 'delivery' : 'pickup',
+        address: _isDelivery ? _addressController.text.trim() : '',
+        status: AppConstants.statusReceived,
+        note: _noteController.text.trim(),
+        items: cartItems
+            .map((item) => OrderItem(
+                  itemId: item.itemId,
+                  name: item.name,
+                  size: item.size,
+                  quantity: item.quantity,
+                  price: item.price,
+                ))
+            .toList(),
+        subtotal: subtotal,
+        deliveryFee: deliveryFee,
+        total: subtotal + deliveryFee,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final orderId = await firestoreService.createOrder(order);
+
+      // Clear cart
+      ref.read(cartProvider.notifier).clearCart();
+
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.orderConfirmation,
+          (route) => false,
+          arguments: {
+            'orderId': orderId,
+            'orderNumber': orderNumber,
+            'total': order.total,
+            'type': order.type,
+          },
+        );
+      }
+    } catch (e) {
+      setState(() => _placing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to place order: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cartItems = ref.watch(cartProvider);
+    final subtotal = ref.watch(cartSubtotalProvider);
+    final deliveryFee = _isDelivery ? AppConstants.deliveryFee : 0.0;
+    final total = subtotal + deliveryFee;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Checkout')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Delivery / Pickup toggle
+              Text('Order Type',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ToggleOption(
+                      label: 'Delivery',
+                      icon: Icons.delivery_dining,
+                      selected: _isDelivery,
+                      onTap: () => setState(() => _isDelivery = true),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ToggleOption(
+                      label: 'Pickup',
+                      icon: Icons.store,
+                      selected: !_isDelivery,
+                      onTap: () => setState(() => _isDelivery = false),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Customer info
+              Text('Your Details',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  prefixIcon: Icon(Icons.person_outlined),
+                ),
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Enter your name' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                  prefixText: '${AppConstants.countryCode} ',
+                ),
+                validator: (v) => v == null || v.trim().length < 9
+                    ? 'Enter a valid phone number'
+                    : null,
+              ),
+
+              if (_isDelivery) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _addressController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Delivery Address',
+                    prefixIcon: Icon(Icons.location_on_outlined),
+                  ),
+                  validator: (v) => _isDelivery && (v == null || v.trim().isEmpty)
+                      ? 'Enter your delivery address'
+                      : null,
+                ),
+              ],
+
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _noteController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Order Note (optional)',
+                  prefixIcon: Icon(Icons.note_outlined),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Order summary
+              Text('Order Summary',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      ...cartItems.map((item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Text(
+                                  '${item.quantity}x',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${item.name} (${item.size[0].toUpperCase()})',
+                                  ),
+                                ),
+                                Text(
+                                  '${AppConstants.currencySymbol} ${item.totalPrice.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          )),
+                      const Divider(),
+                      _SummaryRow(label: 'Subtotal', amount: subtotal),
+                      _SummaryRow(
+                        label: 'Delivery Fee',
+                        amount: deliveryFee,
+                      ),
+                      const Divider(),
+                      _SummaryRow(label: 'Total', amount: total, bold: true),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Place order
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _placing ? null : _placeOrder,
+                  child: _placing
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.white,
+                          ),
+                        )
+                      : Text(
+                          'Place Order · ${AppConstants.currencySymbol} ${total.toStringAsFixed(0)}'),
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ToggleOption extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ToggleOption({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.textGrey.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: selected ? AppColors.white : AppColors.textGrey,
+              size: 28,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? AppColors.white : AppColors.textDark,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final double amount;
+  final bool bold;
+
+  const _SummaryRow({
+    required this.label,
+    required this.amount,
+    this.bold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: bold
+                  ? const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)
+                  : null),
+          Text(
+            '${AppConstants.currencySymbol} ${amount.toStringAsFixed(0)}',
+            style: bold
+                ? const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    color: AppColors.primary)
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
