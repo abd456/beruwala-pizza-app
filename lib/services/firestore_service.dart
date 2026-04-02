@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/menu_item_model.dart';
 import '../models/order_model.dart';
+import '../models/shop_settings_model.dart';
 import '../utils/app_constants.dart';
 
 class FirestoreService {
@@ -140,5 +141,22 @@ class FirestoreService {
     if (snapshot.docs.isEmpty) return 1001;
     final lastNumber = snapshot.docs.first.data()['orderNumber'] as int? ?? 1000;
     return lastNumber + 1;
+  }
+
+  // ─── Shop Settings ───
+
+  Stream<ShopSettingsModel?> getShopSettings() {
+    return _firestore
+        .collection(AppConstants.settingsCollection)
+        .doc(AppConstants.shopSettingsDocument)
+        .snapshots()
+        .map((doc) => doc.exists ? ShopSettingsModel.fromFirestore(doc) : null);
+  }
+
+  Future<void> updateShopSettings(Map<String, dynamic> data) async {
+    await _firestore
+        .collection(AppConstants.settingsCollection)
+        .doc(AppConstants.shopSettingsDocument)
+        .set(data, SetOptions(merge: true));
   }
 }

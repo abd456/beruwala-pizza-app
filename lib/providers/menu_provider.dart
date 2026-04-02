@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/menu_item_model.dart';
+import '../models/shop_settings_model.dart';
 import '../services/firestore_service.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
@@ -36,4 +37,8 @@ final searchedMenuItemsProvider = Provider<AsyncValue<List<MenuItemModel>>>((ref
             item.description.toLowerCase().contains(query))
         .toList();
   });
+});
+
+final shopSettingsProvider = StreamProvider<ShopSettingsModel?>((ref) {
+  return ref.watch(firestoreServiceProvider).getShopSettings();
 });

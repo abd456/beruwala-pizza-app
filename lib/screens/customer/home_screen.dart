@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/menu_provider.dart';
-import '../../providers/cart_provider.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_constants.dart';
 import '../../utils/app_routes.dart';
@@ -14,45 +13,20 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final menuItems = ref.watch(searchedMenuItemsProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
-    final cartCount = ref.watch(cartItemCountProvider);
-
+    final shopSettings = ref.watch(shopSettingsProvider);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(AppConstants.appName),
-        actions: [
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.shopping_cart_outlined),
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
-              ),
-              if (cartCount > 0)
-                Positioned(
-                  right: 4,
-                  top: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppColors.accent,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '$cartCount',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
+        actions: const [],
       ),
       body: Column(
         children: [
+          // Closed banner — only shown when the shop is confirmed closed
+          if (shopSettings.valueOrNull != null &&
+              !shopSettings.valueOrNull!.isOpenRightNow)
+            _ClosedBanner(nextOpen: shopSettings.valueOrNull!.nextOpenDescription),
+
           // Search bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -135,6 +109,38 @@ class HomeScreen extends ConsumerWidget {
               ),
               error: (error, _) => Center(
                 child: Text('Error: $error'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClosedBanner extends StatelessWidget {
+  final String? nextOpen;
+
+  const _ClosedBanner({this.nextOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = nextOpen != null ? ' · Opens $nextOpen' : '';
+    return Container(
+      width: double.infinity,
+      color: AppColors.warning,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(Icons.access_time, color: AppColors.white, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              "We're currently closed$subtitle",
+              style: const TextStyle(
+                color: AppColors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
             ),
           ),

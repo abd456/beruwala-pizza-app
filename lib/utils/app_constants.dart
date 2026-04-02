@@ -19,6 +19,8 @@ class AppConstants {
   static const String usersCollection = 'users';
   static const String menuItemsCollection = 'menuItems';
   static const String ordersCollection = 'orders';
+  static const String settingsCollection = 'settings';
+  static const String shopSettingsDocument = 'shopSettings';
 
   // Roles
   static const String customerRole = 'customer';

@@ -41,7 +41,11 @@ class CartScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.home,
+                  (route) => false,
+                ),
                 child: const Text('Browse Menu'),
               ),
             ],

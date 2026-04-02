@@ -104,15 +104,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _placing = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to place order: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to place order: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -122,6 +121,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final subtotal = ref.watch(cartSubtotalProvider);
     final deliveryFee = _isDelivery ? AppConstants.deliveryFee : 0.0;
     final total = subtotal + deliveryFee;
+    final shopSettings = ref.watch(shopSettingsProvider);
+    final isShopOpen = shopSettings.valueOrNull?.isOpenRightNow ?? true;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -262,22 +263,45 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               const SizedBox(height: 24),
 
               // Place order
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _placing ? null : _placeOrder,
-                  child: _placing
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.white,
+              Column(
+                children: [
+                  if (!isShopOpen)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.store_outlined,
+                              color: AppColors.warning, size: 16),
+                          SizedBox(width: 6),
+                          Text(
+                            'Shop is currently closed',
+                            style: TextStyle(
+                              color: AppColors.warning,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        )
-                      : Text(
-                          'Place Order · ${AppConstants.currencySymbol} ${total.toStringAsFixed(0)}'),
-                ),
+                        ],
+                      ),
+                    ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: (_placing || !isShopOpen) ? null : _placeOrder,
+                      child: _placing
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.white,
+                              ),
+                            )
+                          : Text(
+                              'Place Order · ${AppConstants.currencySymbol} ${total.toStringAsFixed(0)}'),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 32),
             ],

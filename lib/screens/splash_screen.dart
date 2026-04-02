@@ -14,6 +14,7 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
   int _tapCount = 0;
+  bool _navigated = false;
 
   @override
   void initState() {
@@ -22,8 +23,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _navigateAfterDelay() async {
-    await Future.delayed(const Duration(seconds: 3));
-    if (!mounted) return;
+    await Future.delayed(const Duration(seconds: 5));
+    if (!mounted || _navigated) return;
+    _navigated = true;
 
     final authState = ref.read(authStateProvider);
     final user = authState.valueOrNull;
@@ -48,7 +50,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     _tapCount++;
     if (_tapCount >= AppConstants.staffAccessTapCount) {
       _tapCount = 0;
-      Navigator.pushNamed(context, AppRoutes.staffLogin);
+      _navigated = true; // prevent auto-navigation
+      Navigator.pushReplacementNamed(context, AppRoutes.staffLogin);
     }
   }
 

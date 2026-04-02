@@ -1,1 +1,41 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"beruwala-pizza","appId":"1:227528650925:android:94a9eb4baf1a80df33d624","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"beruwala-pizza","configurations":{"android":"1:227528650925:android:94a9eb4baf1a80df33d624","ios":"1:227528650925:ios:9311eb2716d803c833d624","macos":"1:227528650925:ios:9311eb2716d803c833d624","web":"1:227528650925:web:a62fb0a7143d963a33d624","windows":"1:227528650925:web:d714e4015e56342f33d624"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "beruwala-pizza",
+          "appId": "1:227528650925:android:94a9eb4baf1a80df33d624",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "beruwala-pizza",
+          "configurations": {
+            "android": "1:227528650925:android:94a9eb4baf1a80df33d624",
+            "ios": "1:227528650925:ios:9311eb2716d803c833d624",
+            "macos": "1:227528650925:ios:9311eb2716d803c833d624",
+            "web": "1:227528650925:web:a62fb0a7143d963a33d624",
+            "windows": "1:227528650925:web:d714e4015e56342f33d624"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8080
+    },
+    "auth": {
+      "port": 9099
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
+  }
+}

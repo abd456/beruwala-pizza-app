@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────────────────
+
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isLoggedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isLoggedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // ── users collection ─────────────────────────────────────────
+    // Customers can read/write their own doc.
+    // Admins can read any user doc.
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid);
+      allow delete: if false; // no one can delete user docs
+    }
+
+    // ── menuItems collection ─────────────────────────────────────
+    // Anyone can read available menu items (including guests).
+    // Only admins can create/update/delete.
+
+    match /menuItems/{itemId} {
+      allow read: if true; // public read — customers and guests
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── orders collection ─────────────────────────────────────────
+    // Customers can create orders and read their own orders.
+    // Admins can read all orders and update status.
+    // No one can delete orders.
+
+    match /orders/{orderId} {
+      allow read: if isAdmin() ||
+        (isLoggedIn() && resource.data.customerId == request.auth.uid);
+      allow create: if isLoggedIn();
+      allow update: if isAdmin() ||
+        (isLoggedIn() && resource.data.customerId == request.auth.uid);
+      allow delete: if false;
+    }
+
+  }
+}

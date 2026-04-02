@@ -22,121 +22,104 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
     super.dispose();
   }
 
-  String get _fullPhoneNumber =>
-      '${AppConstants.countryCode}${_phoneController.text.trim()}';
-
-  void _sendOtp() {
+  Future<void> _sendOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    ref.read(phoneAuthProvider.notifier).sendOtp(_fullPhoneNumber);
+    final phone = '${AppConstants.countryCode}${_phoneController.text.trim()}';
+
+    // This calls FirebaseAuth.verifyPhoneNumber behind the scenes.
+    // Provider is in lib/providers/auth_provider.dart — class PhoneAuthNotifier.
+    await ref.read(phoneAuthProvider.notifier).sendOtp(phone);
   }
 
   @override
   Widget build(BuildContext context) {
-    final phoneState = ref.watch(phoneAuthProvider);
+    final otpState = ref.watch(phoneAuthProvider);
 
-    ref.listen<PhoneAuthState>(phoneAuthProvider, (prev, next) {
+    // When OTP is sent, navigate to OTP screen
+    ref.listen(phoneAuthProvider, (_, next) {
       if (next.otpState == OtpState.sent) {
         Navigator.pushNamed(
           context,
           AppRoutes.otp,
-          arguments: _fullPhoneNumber,
+          arguments: _phoneController.text.trim(),
         );
       }
-      if (next.otpState == OtpState.error && next.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.error!), backgroundColor: Colors.red),
+      // Auto-verified (e.g. on emulator or same device)
+      if (next.otpState == OtpState.verified) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.home,
+          (route) => false,
         );
       }
     });
 
+    final isSending = otpState.otpState == OtpState.sending;
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 40),
-                Text(
-                  'Enter your\nphone number',
-                  style: Theme.of(context).textTheme.headlineLarge,
+      appBar: AppBar(title: const Text('Sign In')),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 32),
+              Text(
+                'Enter your phone number',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'We\'ll send you a verification code',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textGrey,
+                    ),
+              ),
+              const SizedBox(height: 32),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  prefixText: '${AppConstants.countryCode} ',
+                  prefixIcon: Icon(Icons.phone_outlined),
                 ),
+                validator: (v) => v == null || v.trim().length < 9
+                    ? 'Enter a valid Sri Lankan mobile number (9 digits)'
+                    : null,
+              ),
+              if (otpState.error != null) ...[
                 const SizedBox(height: 12),
                 Text(
-                  'We\'ll send you a verification code',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 40),
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
-                  ),
-                  decoration: InputDecoration(
-                    prefixIcon: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '${AppConstants.countryCode} ',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-                          Container(
-                            width: 1,
-                            height: 24,
-                            color: AppColors.textGrey,
-                            margin: const EdgeInsets.only(left: 8),
-                          ),
-                        ],
-                      ),
-                    ),
-                    hintText: '7X XXX XXXX',
-                    counterText: '',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your phone number';
-                    }
-                    if (value.trim().length < 9) {
-                      return 'Please enter a valid phone number';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: phoneState.otpState == OtpState.sending
-                        ? null
-                        : _sendOtp,
-                    child: phoneState.otpState == OtpState.sending
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.white,
-                            ),
-                          )
-                        : const Text('Send OTP'),
-                  ),
+                  otpState.error!,
+                  style: const TextStyle(color: Colors.red),
                 ),
               ],
-            ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isSending ? null : _sendOtp,
+                  child: isSending
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.white,
+                          ),
+                        )
+                      : const Text('Send Code'),
+                ),
+              ),
+            ],
           ),
         ),
       ),
