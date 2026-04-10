@@ -1,8 +1,8 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/menu_item_model.dart';
 import '../../providers/menu_provider.dart';
 import '../../services/storage_service.dart';
@@ -20,16 +20,18 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
-  final _smallPriceController = TextEditingController();
-  final _mediumPriceController = TextEditingController();
-  final _largePriceController = TextEditingController();
 
   late String _selectedCategory;
   late bool _available;
   late MenuItemModel _item;
-  XFile? _pickedImage;
   bool _saving = false;
   bool _initialized = false;
+
+  late List<String> _keptUrls;
+  final List<String> _removedUrls = [];
+  final List<XFile> _newImages = [];
+
+  final List<_VariationRow> _variations = [];
 
   final _storageService = StorageService();
 
@@ -40,14 +42,22 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
       _item = ModalRoute.of(context)!.settings.arguments as MenuItemModel;
       _nameController.text = _item.name;
       _descController.text = _item.description;
-      _smallPriceController.text =
-          _item.getPrice(AppConstants.sizeSmall).toStringAsFixed(0);
-      _mediumPriceController.text =
-          _item.getPrice(AppConstants.sizeMedium).toStringAsFixed(0);
-      _largePriceController.text =
-          _item.getPrice(AppConstants.sizeLarge).toStringAsFixed(0);
       _selectedCategory = _item.category;
       _available = _item.available;
+      _keptUrls = List<String>.from(_item.imageUrls);
+
+      // Load existing variations
+      for (final entry in _item.prices.entries) {
+        _variations.add(_VariationRow(
+          name: entry.key,
+          price: entry.value.toStringAsFixed(0),
+          detail: _item.variationDetails[entry.key] ?? '',
+        ));
+      }
+      if (_variations.isEmpty) {
+        _variations.add(_VariationRow());
+      }
+
       _initialized = true;
     }
   }
@@ -56,13 +66,13 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
   void dispose() {
     _nameController.dispose();
     _descController.dispose();
-    _smallPriceController.dispose();
-    _mediumPriceController.dispose();
-    _largePriceController.dispose();
+    for (final v in _variations) {
+      v.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _addImage() async {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -71,10 +81,13 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('Gallery'),
+              subtitle: const Text('Select multiple photos'),
               onTap: () async {
                 Navigator.pop(ctx);
-                final file = await _storageService.pickImage();
-                if (file != null) setState(() => _pickedImage = file);
+                final files = await _storageService.pickMultipleImages();
+                if (files.isNotEmpty) {
+                  setState(() => _newImages.addAll(files));
+                }
               },
             ),
             ListTile(
@@ -83,7 +96,7 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
               onTap: () async {
                 Navigator.pop(ctx);
                 final file = await _storageService.takePhoto();
-                if (file != null) setState(() => _pickedImage = file);
+                if (file != null) setState(() => _newImages.add(file));
               },
             ),
           ],
@@ -94,37 +107,38 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
 
   Future<void> _saveItem() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _saving = true);
 
     try {
-      String imageUrl = _item.imageUrl;
+      for (final url in _removedUrls) {
+        await _storageService.deleteImage(url);
+      }
 
-      if (_pickedImage != null) {
-        // Delete old image if exists
-        if (_item.imageUrl.isNotEmpty) {
-          await _storageService.deleteImage(_item.imageUrl);
-        }
-        imageUrl = await _storageService.uploadMenuItemImage(
+      List<String> newUrls = [];
+      if (_newImages.isNotEmpty) {
+        newUrls = await _storageService.uploadMultipleMenuItemImages(
           _nameController.text.trim(),
-          _pickedImage!,
+          _newImages,
         );
+      }
+
+      final prices = <String, double>{};
+      final variationDetails = <String, String>{};
+      for (final v in _variations) {
+        final name = v.nameController.text.trim();
+        prices[name] = double.parse(v.priceController.text.trim());
+        final detail = v.detailController.text.trim();
+        if (detail.isNotEmpty) variationDetails[name] = detail;
       }
 
       await ref.read(firestoreServiceProvider).updateMenuItem(_item.id, {
         'name': _nameController.text.trim(),
         'category': _selectedCategory,
         'description': _descController.text.trim(),
-        'imageUrl': imageUrl,
+        'imageUrls': [..._keptUrls, ...newUrls],
         'available': _available,
-        'prices': {
-          AppConstants.sizeSmall:
-              double.parse(_smallPriceController.text.trim()),
-          AppConstants.sizeMedium:
-              double.parse(_mediumPriceController.text.trim()),
-          AppConstants.sizeLarge:
-              double.parse(_largePriceController.text.trim()),
-        },
+        'prices': prices,
+        'variationDetails': variationDetails,
       });
 
       if (mounted) {
@@ -159,8 +173,7 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child:
-                const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -169,8 +182,8 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
     if (confirm != true) return;
 
     try {
-      if (_item.imageUrl.isNotEmpty) {
-        await _storageService.deleteImage(_item.imageUrl);
+      for (final url in _item.imageUrls) {
+        await _storageService.deleteImage(url);
       }
       await ref.read(firestoreServiceProvider).deleteMenuItem(_item.id);
       if (mounted) {
@@ -211,61 +224,18 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image
-              Center(
-                child: GestureDetector(
-                  onTap: _pickImage,
-                  child: Container(
-                    width: double.infinity,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: AppColors.textGrey.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: _pickedImage != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.file(
-                              File(_pickedImage!.path),
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : _item.imageUrl.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: CachedNetworkImage(
-                                  imageUrl: _item.imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorWidget: (_, _, _) => const Icon(
-                                    Icons.local_pizza,
-                                    size: 48,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              )
-                            : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_photo_alternate_outlined,
-                                      size: 48,
-                                      color: AppColors.textGrey
-                                          .withValues(alpha: 0.5)),
-                                  const SizedBox(height: 8),
-                                  Text('Tap to change photo',
-                                      style: TextStyle(
-                                          color: AppColors.textGrey
-                                              .withValues(alpha: 0.7))),
-                                ],
-                              ),
-                  ),
-                ),
+              _EditImageStrip(
+                keptUrls: _keptUrls,
+                newImages: _newImages,
+                onRemoveUrl: (i) => setState(() {
+                  _removedUrls.add(_keptUrls[i]);
+                  _keptUrls.removeAt(i);
+                }),
+                onRemoveNew: (i) => setState(() => _newImages.removeAt(i)),
+                onAdd: _addImage,
               ),
               const SizedBox(height: 20),
 
-              // Name
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
@@ -277,7 +247,6 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Category
               DropdownButtonFormField<String>(
                 initialValue: _selectedCategory,
                 decoration: const InputDecoration(
@@ -293,7 +262,6 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Description
               TextFormField(
                 controller: _descController,
                 maxLines: 3,
@@ -305,46 +273,92 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Prices
-              Text('Pricing (LKR)',
-                  style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 12),
+              // Variations
               Row(
                 children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _smallPriceController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Small'),
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _mediumPriceController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Medium'),
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _largePriceController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Large'),
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Required' : null,
-                    ),
+                  Text('Variations (LKR)',
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () =>
+                        setState(() => _variations.add(_VariationRow())),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add'),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
+              ..._variations.asMap().entries.map((entry) {
+                final i = entry.key;
+                final v = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 5,
+                            child: TextFormField(
+                              controller: v.nameController,
+                              decoration:
+                                  const InputDecoration(labelText: 'Name'),
+                              validator: (val) =>
+                                  val == null || val.trim().isEmpty
+                                      ? 'Required'
+                                      : null,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 4,
+                            child: TextFormField(
+                              controller: v.priceController,
+                              keyboardType: TextInputType.number,
+                              decoration:
+                                  const InputDecoration(labelText: 'Price'),
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Required';
+                                }
+                                if (double.tryParse(val.trim()) == null) {
+                                  return 'Invalid';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          if (_variations.length > 1)
+                            IconButton(
+                              icon: const Icon(Icons.close,
+                                  size: 20, color: Colors.red),
+                              onPressed: () => setState(() {
+                                _variations[i].dispose();
+                                _variations.removeAt(i);
+                              }),
+                            )
+                          else
+                            const SizedBox(width: 44),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: v.detailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Detail (optional)',
+                          hintText: 'e.g. 12 inch, 500ml',
+                          isDense: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 12),
 
-              // Available toggle
               SwitchListTile(
                 title: const Text('Available'),
                 subtitle: Text(
@@ -357,7 +371,6 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Save button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -378,6 +391,194 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _VariationRow {
+  final TextEditingController nameController;
+  final TextEditingController priceController;
+  final TextEditingController detailController;
+
+  _VariationRow({String name = '', String price = '', String detail = ''})
+      : nameController = TextEditingController(text: name),
+        priceController = TextEditingController(text: price),
+        detailController = TextEditingController(text: detail);
+
+  void dispose() {
+    nameController.dispose();
+    priceController.dispose();
+    detailController.dispose();
+  }
+}
+
+// ── Edit image strip ───────────────────────────────────────────────────────
+
+class _EditImageStrip extends StatelessWidget {
+  final List<String> keptUrls;
+  final List<XFile> newImages;
+  final void Function(int) onRemoveUrl;
+  final void Function(int) onRemoveNew;
+  final VoidCallback onAdd;
+
+  const _EditImageStrip({
+    required this.keptUrls,
+    required this.newImages,
+    required this.onRemoveUrl,
+    required this.onRemoveNew,
+    required this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final totalCount = keptUrls.length + newImages.length;
+
+    return SizedBox(
+      height: 110,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          ...keptUrls.asMap().entries.map((entry) {
+            final i = entry.key;
+            final url = entry.value;
+            return Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: CachedNetworkImage(
+                      imageUrl: url,
+                      width: 110,
+                      height: 110,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, err) => Container(
+                        width: 110,
+                        height: 110,
+                        color: AppColors.background,
+                        child: const Icon(Icons.local_pizza,
+                            color: AppColors.primary),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => onRemoveUrl(i),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(3),
+                        child: const Icon(Icons.close,
+                            size: 14, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  if (i == 0)
+                    Positioned(
+                      bottom: 4,
+                      left: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text('Cover',
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 10)),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }),
+          ...newImages.asMap().entries.map((entry) {
+            final i = entry.key;
+            final file = entry.value;
+            return Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      File(file.path),
+                      width: 110,
+                      height: 110,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => onRemoveNew(i),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(3),
+                        child: const Icon(Icons.close,
+                            size: 14, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 4,
+                    left: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text('New',
+                          style:
+                              TextStyle(color: Colors.white, fontSize: 10)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          GestureDetector(
+            onTap: onAdd,
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.textGrey.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_photo_alternate_outlined,
+                      size: 32,
+                      color: AppColors.textGrey.withValues(alpha: 0.5)),
+                  const SizedBox(height: 4),
+                  Text(
+                    totalCount == 0 ? 'Add photo' : 'Add more',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textGrey.withValues(alpha: 0.7)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

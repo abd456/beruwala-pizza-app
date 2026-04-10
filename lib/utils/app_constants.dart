@@ -40,11 +40,6 @@ class AppConstants {
     'Desserts',
   ];
 
-  // Sizes
-  static const String sizeSmall = 'small';
-  static const String sizeMedium = 'medium';
-  static const String sizeLarge = 'large';
-
   // Hidden Staff Access
   static const int staffAccessTapCount = 5;
 }

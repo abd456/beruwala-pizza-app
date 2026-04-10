@@ -15,51 +15,104 @@ class ItemDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
-  String _selectedSize = AppConstants.sizeSmall;
+  String? _selectedVariation;
   int _quantity = 1;
+  int _currentImageIndex = 0;
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final item = ModalRoute.of(context)!.settings.arguments as MenuItemModel;
-    final currentPrice = item.getPrice(_selectedSize);
+    final variations = item.prices.entries.toList();
+    final images = item.imageUrls;
+
+    // Auto-select first variation on first build
+    if (_selectedVariation == null && variations.isNotEmpty) {
+      _selectedVariation = variations.first.key;
+    }
+
+    final currentPrice = item.getPrice(_selectedVariation ?? '');
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
-          // Image header
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
             backgroundColor: AppColors.primary,
             foregroundColor: AppColors.white,
             flexibleSpace: FlexibleSpaceBar(
-              background: item.imageUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: item.imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: AppColors.background,
-                        child: const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        color: AppColors.background,
-                        child: const Icon(
-                          Icons.local_pizza,
-                          size: 80,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    )
-                  : Container(
+              background: images.isEmpty
+                  ? Container(
                       color: AppColors.background,
-                      child: const Icon(
-                        Icons.local_pizza,
-                        size: 80,
-                        color: AppColors.primary,
-                      ),
+                      child: const Icon(Icons.local_pizza,
+                          size: 80, color: AppColors.primary),
+                    )
+                  : Stack(
+                      children: [
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: images.length,
+                          onPageChanged: (i) =>
+                              setState(() => _currentImageIndex = i),
+                          itemBuilder: (context, i) => CachedNetworkImage(
+                            imageUrl: images[i],
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: AppColors.background,
+                              child: const Center(
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                            errorWidget: (context, url, err) => Container(
+                              color: AppColors.background,
+                              child: const Icon(Icons.local_pizza,
+                                  size: 80, color: AppColors.primary),
+                            ),
+                          ),
+                        ),
+                        // Dot indicators (only when >1 image)
+                        if (images.length > 1)
+                          Positioned(
+                            bottom: 12,
+                            left: 0,
+                            right: 0,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(images.length, (i) {
+                                final active = i == _currentImageIndex;
+                                return AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  margin: const EdgeInsets.symmetric(
+                                      horizontal: 3),
+                                  width: active ? 20 : 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: active
+                                        ? AppColors.white
+                                        : AppColors.white
+                                            .withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                );
+                              }),
+                            ),
+                          ),
+                      ],
                     ),
             ),
           ),
@@ -70,17 +123,15 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name & Category
-                  Text(
-                    item.name,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
+                  // Name
+                  Text(item.name,
+                      style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 4),
+
+                  // Category badge
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -108,49 +159,86 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                     const SizedBox(height: 24),
                   ],
 
-                  // Size selector
-                  Text(
-                    'Choose Size',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _SizeOption(
-                        label: 'S',
-                        subtitle: 'Small',
-                        price: item.getPrice(AppConstants.sizeSmall),
-                        selected: _selectedSize == AppConstants.sizeSmall,
-                        onTap: () => setState(
-                            () => _selectedSize = AppConstants.sizeSmall),
-                      ),
-                      const SizedBox(width: 12),
-                      _SizeOption(
-                        label: 'M',
-                        subtitle: 'Medium',
-                        price: item.getPrice(AppConstants.sizeMedium),
-                        selected: _selectedSize == AppConstants.sizeMedium,
-                        onTap: () => setState(
-                            () => _selectedSize = AppConstants.sizeMedium),
-                      ),
-                      const SizedBox(width: 12),
-                      _SizeOption(
-                        label: 'L',
-                        subtitle: 'Large',
-                        price: item.getPrice(AppConstants.sizeLarge),
-                        selected: _selectedSize == AppConstants.sizeLarge,
-                        onTap: () => setState(
-                            () => _selectedSize = AppConstants.sizeLarge),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+                  // Variation selector
+                  if (variations.isNotEmpty) ...[
+                    Text(
+                      variations.length == 1 ? 'Variation' : 'Choose Variation',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: variations.map((entry) {
+                        final selected = _selectedVariation == entry.key;
+                        return GestureDetector(
+                          onTap: () =>
+                              setState(() => _selectedVariation = entry.key),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? AppColors.primary
+                                  : AppColors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.primary
+                                    : AppColors.textGrey
+                                        .withValues(alpha: 0.3),
+                                width: selected ? 2 : 1,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  entry.key,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: selected
+                                        ? AppColors.white
+                                        : AppColors.textDark,
+                                  ),
+                                ),
+                                if ((item.variationDetails[entry.key] ?? '')
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    item.variationDetails[entry.key]!,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: selected
+                                          ? AppColors.white
+                                              .withValues(alpha: 0.8)
+                                          : AppColors.textGrey,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${AppConstants.currencySymbol} ${entry.value.toStringAsFixed(0)}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: selected
+                                        ? AppColors.accent
+                                        : AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
 
                   // Quantity selector
-                  Text(
-                    'Quantity',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                  Text('Quantity',
+                      style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -176,7 +264,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 100), // space for bottom bar
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
@@ -184,7 +272,6 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
         ],
       ),
 
-      // Bottom bar: Price + Add to Cart
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -204,10 +291,8 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Total',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+                  Text('Total',
+                      style: Theme.of(context).textTheme.bodyMedium),
                   Text(
                     '${AppConstants.currencySymbol} ${(currentPrice * _quantity).toStringAsFixed(0)}',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -220,95 +305,30 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
               const SizedBox(width: 20),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    ref.read(cartProvider.notifier).addItem(
-                          CartItemModel(
-                            itemId: item.id,
-                            name: item.name,
-                            imageUrl: item.imageUrl,
-                            size: _selectedSize,
-                            quantity: _quantity,
-                            price: currentPrice,
-                          ),
-                        );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${item.name} added to cart'),
-                        backgroundColor: AppColors.success,
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                    Navigator.pop(context);
-                  },
+                  onPressed: _selectedVariation == null
+                      ? null
+                      : () {
+                          ref.read(cartProvider.notifier).addItem(
+                                CartItemModel(
+                                  itemId: item.id,
+                                  name: item.name,
+                                  imageUrl: item.imageUrl,
+                                  size: _selectedVariation!,
+                                  quantity: _quantity,
+                                  price: currentPrice,
+                                ),
+                              );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('${item.name} added to cart'),
+                              backgroundColor: AppColors.success,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                          Navigator.pop(context);
+                        },
                   icon: const Icon(Icons.add_shopping_cart),
                   label: const Text('Add to Cart'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SizeOption extends StatelessWidget {
-  final String label;
-  final String subtitle;
-  final double price;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _SizeOption({
-    required this.label,
-    required this.subtitle,
-    required this.price,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primary : AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? AppColors.primary : AppColors.textGrey.withValues(alpha: 0.3),
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: selected ? AppColors.white : AppColors.textDark,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: selected
-                      ? AppColors.white.withValues(alpha: 0.8)
-                      : AppColors.textGrey,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${AppConstants.currencySymbol} ${price.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? AppColors.accent : AppColors.primary,
                 ),
               ),
             ],
@@ -333,7 +353,9 @@ class _QuantityButton extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: onTap != null ? AppColors.primary : AppColors.textGrey.withValues(alpha: 0.2),
+          color: onTap != null
+              ? AppColors.primary
+              : AppColors.textGrey.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(

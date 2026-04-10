@@ -87,7 +87,7 @@ class MenuManagementScreen extends ConsumerWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   subtitle: Text(
-                    '${item.category}  ·  ${AppConstants.currencySymbol} ${item.getPrice(AppConstants.sizeSmall).toStringAsFixed(0)}',
+                    '${item.category}  ·  ${AppConstants.currencySymbol} ${(item.prices.values.isNotEmpty ? item.prices.values.first : 0.0).toStringAsFixed(0)}',
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,

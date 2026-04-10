@@ -143,9 +143,44 @@ class CartScreen extends ConsumerWidget {
                             children: [
                               _CartQuantityButton(
                                 icon: Icons.remove,
-                                onTap: () => ref
-                                    .read(cartProvider.notifier)
-                                    .updateQuantity(index, item.quantity - 1),
+                                onTap: () async {
+                                  if (item.quantity == 1) {
+                                    final remove = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Remove item?'),
+                                        content: Text(
+                                            'Remove ${item.name} from your cart?'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, false),
+                                            child: const Text('Keep'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, true),
+                                            child: const Text(
+                                              'Remove',
+                                              style: TextStyle(
+                                                  color: Colors.red),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (remove == true) {
+                                      ref
+                                          .read(cartProvider.notifier)
+                                          .removeItem(index);
+                                    }
+                                  } else {
+                                    ref
+                                        .read(cartProvider.notifier)
+                                        .updateQuantity(
+                                            index, item.quantity - 1);
+                                  }
+                                },
                               ),
                               Padding(
                                 padding:

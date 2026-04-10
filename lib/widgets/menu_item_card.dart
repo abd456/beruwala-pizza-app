@@ -3,7 +3,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/menu_item_model.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
-
 class MenuItemCard extends StatelessWidget {
   final MenuItemModel item;
   final VoidCallback onTap;
@@ -16,7 +15,9 @@ class MenuItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final smallPrice = item.getPrice(AppConstants.sizeSmall);
+    final smallPrice = item.prices.values.isNotEmpty
+        ? item.prices.values.first
+        : 0.0;
 
     return GestureDetector(
       onTap: onTap,

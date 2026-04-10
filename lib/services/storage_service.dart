@@ -6,9 +6,8 @@ class StorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final ImagePicker _picker = ImagePicker();
 
-  Future<XFile?> pickImage() async {
-    return await _picker.pickImage(
-      source: ImageSource.gallery,
+  Future<List<XFile>> pickMultipleImages() async {
+    return await _picker.pickMultiImage(
       maxWidth: 1024,
       maxHeight: 1024,
       imageQuality: 80,
@@ -28,10 +27,16 @@ class StorageService {
     final fileName =
         '${itemName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.jpg';
     final ref = _storage.ref().child('menu_items/$fileName');
-
-    final uploadTask = ref.putFile(File(file.path));
-    final snapshot = await uploadTask;
+    final snapshot = await ref.putFile(File(file.path));
     return await snapshot.ref.getDownloadURL();
+  }
+
+  Future<List<String>> uploadMultipleMenuItemImages(
+      String itemName, List<XFile> files) async {
+    final results = await Future.wait(
+      files.map((f) => uploadMenuItemImage(itemName, f)),
+    );
+    return results;
   }
 
   Future<void> deleteImage(String imageUrl) async {
