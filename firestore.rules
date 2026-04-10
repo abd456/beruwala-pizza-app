@@ -42,6 +42,15 @@ service cloud.firestore {
     // Admins can read all orders and update status.
     // No one can delete orders.
 
+    // ── settings collection ──────────────────────────────────────
+    // shopSettings: public read, admin write.
+    // orderCounter: logged-in users can read/write (used in transactions).
+
+    match /settings/{docId} {
+      allow read: if docId == 'shopSettings' || isLoggedIn();
+      allow write: if docId == 'orderCounter' ? isLoggedIn() : isAdmin();
+    }
+
     match /orders/{orderId} {
       allow read: if isAdmin() ||
         (isLoggedIn() && resource.data.customerId == request.auth.uid);

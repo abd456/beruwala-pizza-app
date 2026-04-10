@@ -17,7 +17,10 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      return web;
+      throw UnsupportedError(
+        'DefaultFirebaseOptions have not been configured for web - '
+        'you can reconfigure this by running the FlutterFire CLI again.',
+      );
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -25,9 +28,15 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
-        return windows;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -40,49 +49,20 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDXBfHWn35Zby8YEDOfZTrHLt7XZQKwJWQ',
-    appId: '1:227528650925:web:a62fb0a7143d963a33d624',
-    messagingSenderId: '227528650925',
-    projectId: 'beruwala-pizza',
-    authDomain: 'beruwala-pizza.firebaseapp.com',
-    storageBucket: 'beruwala-pizza.firebasestorage.app',
-    measurementId: 'G-5VDQYTSJ71',
-  );
-
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDubjJohe_5YAWx2eWjWw0CPacgcHeugOY',
-    appId: '1:227528650925:android:94a9eb4baf1a80df33d624',
-    messagingSenderId: '227528650925',
-    projectId: 'beruwala-pizza',
-    storageBucket: 'beruwala-pizza.firebasestorage.app',
+    apiKey: 'AIzaSyDM-9hWnR6GNEC1d0KoALW5ft3m5Je7g-k',
+    appId: '1:758192700335:android:3f6d90607e96a01d7d8d5a',
+    messagingSenderId: '758192700335',
+    projectId: 'beruwala-pizza-7dafd',
+    storageBucket: 'beruwala-pizza-7dafd.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyD-nu81RwKaXGC4KoWMg_mzwV3aLjPP53k',
-    appId: '1:227528650925:ios:9311eb2716d803c833d624',
-    messagingSenderId: '227528650925',
-    projectId: 'beruwala-pizza',
-    storageBucket: 'beruwala-pizza.firebasestorage.app',
+    apiKey: 'AIzaSyBSoVw9ZdFfBvOThrKjMeiGRtPIyN5nLaE',
+    appId: '1:758192700335:ios:f00ddc885ad566837d8d5a',
+    messagingSenderId: '758192700335',
+    projectId: 'beruwala-pizza-7dafd',
+    storageBucket: 'beruwala-pizza-7dafd.firebasestorage.app',
     iosBundleId: 'com.beruwala.pizza.beruwalaPizza',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyD-nu81RwKaXGC4KoWMg_mzwV3aLjPP53k',
-    appId: '1:227528650925:ios:9311eb2716d803c833d624',
-    messagingSenderId: '227528650925',
-    projectId: 'beruwala-pizza',
-    storageBucket: 'beruwala-pizza.firebasestorage.app',
-    iosBundleId: 'com.beruwala.pizza.beruwalaPizza',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDXBfHWn35Zby8YEDOfZTrHLt7XZQKwJWQ',
-    appId: '1:227528650925:web:d714e4015e56342f33d624',
-    messagingSenderId: '227528650925',
-    projectId: 'beruwala-pizza',
-    authDomain: 'beruwala-pizza.firebaseapp.com',
-    storageBucket: 'beruwala-pizza.firebasestorage.app',
-    measurementId: 'G-GY785GJFT8',
   );
 }

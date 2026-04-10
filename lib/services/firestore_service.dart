@@ -132,15 +132,16 @@ class FirestoreService {
   // ─── Order Number ───
 
   Future<int> getNextOrderNumber() async {
-    final snapshot = await _firestore
-        .collection(AppConstants.ordersCollection)
-        .orderBy('orderNumber', descending: true)
-        .limit(1)
-        .get();
+    final counterRef = _firestore
+        .collection(AppConstants.settingsCollection)
+        .doc('orderCounter');
 
-    if (snapshot.docs.isEmpty) return 1001;
-    final lastNumber = snapshot.docs.first.data()['orderNumber'] as int? ?? 1000;
-    return lastNumber + 1;
+    return _firestore.runTransaction<int>((tx) async {
+      final snap = await tx.get(counterRef);
+      final next = snap.exists ? ((snap.data()?['count'] as int? ?? 1000) + 1) : 1001;
+      tx.set(counterRef, {'count': next}, SetOptions(merge: true));
+      return next;
+    });
   }
 
   // ─── Shop Settings ───

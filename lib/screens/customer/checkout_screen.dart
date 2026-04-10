@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/order_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/menu_provider.dart';
+import '../../services/onepay_service.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_constants.dart';
 import '../../utils/app_routes.dart';
@@ -24,6 +26,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   bool _isDelivery = true;
   bool _placing = false;
+  String _paymentMethod = 'cash'; // 'cash' or 'card'
+  late OnepayService _onepayService;
+
+  @override
+  void initState() {
+    super.initState();
+    _onepayService = OnepayService();
+  }
 
   @override
   void dispose() {
@@ -40,9 +50,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     // Check if logged in
     final user = ref.read(authStateProvider).valueOrNull;
     if (user == null) {
-      // Redirect to login, then come back
       await Navigator.pushNamed(context, AppRoutes.phoneEntry);
-      // After login, user might come back — re-check
       if (!mounted) return;
       final userAfterLogin = ref.read(authStateProvider).valueOrNull;
       if (userAfterLogin == null) return;
@@ -54,11 +62,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final cartItems = ref.read(cartProvider);
       final subtotal = ref.read(cartSubtotalProvider);
       final deliveryFee = _isDelivery ? AppConstants.deliveryFee : 0.0;
+      final total = subtotal + deliveryFee;
       final firestoreService = ref.read(firestoreServiceProvider);
       final currentUser = ref.read(authStateProvider).valueOrNull;
 
       final orderNumber = await firestoreService.getNextOrderNumber();
 
+      // Build order object
       final order = OrderModel(
         id: '',
         orderNumber: orderNumber,
@@ -80,37 +90,139 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             .toList(),
         subtotal: subtotal,
         deliveryFee: deliveryFee,
-        total: subtotal + deliveryFee,
+        total: total,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        paymentMethod: _paymentMethod,
+        paymentStatus: _paymentMethod == 'cash' ? 'pending' : 'pending',
       );
 
-      final orderId = await firestoreService.createOrder(order);
-
-      // Clear cart
-      ref.read(cartProvider.notifier).clearCart();
-
-      if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.orderConfirmation,
-          (route) => false,
-          arguments: {
-            'orderId': orderId,
-            'orderNumber': orderNumber,
-            'total': order.total,
-            'type': order.type,
-          },
-        );
+      // If card payment, process with OnePay
+      if (_paymentMethod == 'card') {
+        await _processCardPayment(order, firestoreService);
+      } else {
+        // Cash payment — save order directly
+        await _saveOrderToFirestore(order, firestoreService, orderNumber);
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _placing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to place order: $e'),
+          content: Text('Error: $e'),
           backgroundColor: Colors.red,
         ),
+      );
+    }
+  }
+
+  Future<void> _processCardPayment(
+    OrderModel order,
+    dynamic firestoreService,
+  ) async {
+    // Initialize OnePay with customer details
+    _onepayService.initialize(
+      firstName: _nameController.text.trim().split(' ').first,
+      lastName: _nameController.text.trim().split(' ').last,
+      phoneNumber: _phoneController.text.trim(),
+    );
+
+    // For now, use test card token. In production, customer would select saved card
+    const testCardToken = 'test_card_token_001';
+
+    // Create a Completer to wait for payment result
+    final completer = Completer<bool>();
+
+    // Process payment
+    _onepayService.makePayment(
+      amount: order.total,
+      customerCardToken: testCardToken,
+      onResult: (success, message, transactionId) async {
+        if (!mounted) {
+          completer.completeError('Widget not mounted');
+          return;
+        }
+
+        if (success) {
+          // Payment successful — update order with payment info
+          final updatedOrder = OrderModel(
+            id: order.id,
+            orderNumber: order.orderNumber,
+            customerId: order.customerId,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            type: order.type,
+            address: order.address,
+            status: order.status,
+            note: order.note,
+            items: order.items,
+            subtotal: order.subtotal,
+            deliveryFee: order.deliveryFee,
+            total: order.total,
+            createdAt: order.createdAt,
+            updatedAt: order.updatedAt,
+            paymentMethod: 'card',
+            paymentStatus: 'paid',
+            paymentTransactionId: transactionId,
+          );
+
+          try {
+            await _saveOrderToFirestore(updatedOrder, firestoreService, order.orderNumber);
+            completer.complete(true);
+          } catch (e) {
+            completer.completeError(e);
+          }
+        } else {
+          // Payment failed
+          if (mounted) {
+            setState(() => _placing = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Payment failed: $message'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          completer.complete(false);
+        }
+      },
+    );
+
+    // Wait for payment to complete
+    try {
+      await completer.future;
+    } catch (e) {
+      if (mounted) {
+        setState(() => _placing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveOrderToFirestore(
+    OrderModel order,
+    dynamic firestoreService,
+    int orderNumber,
+  ) async {
+    final orderId = await firestoreService.createOrder(order);
+    ref.read(cartProvider.notifier).clearCart();
+
+    if (mounted) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.orderConfirmation,
+        (route) => false,
+        arguments: {
+          'orderId': orderId,
+          'orderNumber': orderNumber,
+          'total': order.total,
+          'type': order.type,
+        },
       );
     }
   }
@@ -211,6 +323,34 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   labelText: 'Order Note (optional)',
                   prefixIcon: Icon(Icons.note_outlined),
                 ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Payment method
+              Text('Payment Method',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ToggleOption(
+                      label: 'Cash',
+                      icon: Icons.attach_money,
+                      selected: _paymentMethod == 'cash',
+                      onTap: () => setState(() => _paymentMethod = 'cash'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ToggleOption(
+                      label: 'Card',
+                      icon: Icons.credit_card,
+                      selected: _paymentMethod == 'card',
+                      onTap: () => setState(() => _paymentMethod = 'card'),
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 24),

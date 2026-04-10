@@ -1,41 +1,25 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "flutter": {
     "platforms": {
       "android": {
         "default": {
-          "projectId": "beruwala-pizza",
-          "appId": "1:227528650925:android:94a9eb4baf1a80df33d624",
+          "projectId": "beruwala-pizza-7dafd",
+          "appId": "1:758192700335:android:3f6d90607e96a01d7d8d5a",
           "fileOutput": "android/app/google-services.json"
         }
       },
       "dart": {
         "lib/firebase_options.dart": {
-          "projectId": "beruwala-pizza",
+          "projectId": "beruwala-pizza-7dafd",
           "configurations": {
-            "android": "1:227528650925:android:94a9eb4baf1a80df33d624",
-            "ios": "1:227528650925:ios:9311eb2716d803c833d624",
-            "macos": "1:227528650925:ios:9311eb2716d803c833d624",
-            "web": "1:227528650925:web:a62fb0a7143d963a33d624",
-            "windows": "1:227528650925:web:d714e4015e56342f33d624"
+            "android": "1:758192700335:android:3f6d90607e96a01d7d8d5a",
+            "ios": "1:758192700335:ios:f00ddc885ad566837d8d5a"
           }
         }
       }
     }
-  },
-  "firestore": {
-    "rules": "firestore.rules"
-  },
-  "emulators": {
-    "firestore": {
-      "port": 8080
-    },
-    "auth": {
-      "port": 9099
-    },
-    "ui": {
-      "enabled": true,
-      "port": 4000
-    },
-    "singleProjectMode": true
   }
 }

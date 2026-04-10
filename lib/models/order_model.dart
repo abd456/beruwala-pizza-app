@@ -54,6 +54,9 @@ class OrderModel {
   final double total;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String paymentStatus; // "paid" | "pending" | "cash_on_delivery"
+  final String paymentMethod; // "card" | "cash"
+  final String? paymentTransactionId; // OnePay transaction ID
 
   const OrderModel({
     required this.id,
@@ -71,6 +74,9 @@ class OrderModel {
     required this.total,
     required this.createdAt,
     required this.updatedAt,
+    this.paymentStatus = 'pending',
+    this.paymentMethod = 'cash',
+    this.paymentTransactionId,
   });
 
   factory OrderModel.fromFirestore(DocumentSnapshot doc) {
@@ -93,6 +99,9 @@ class OrderModel {
       total: (data['total'] as num?)?.toDouble() ?? 0.0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      paymentStatus: data['paymentStatus'] ?? 'pending',
+      paymentMethod: data['paymentMethod'] ?? 'cash',
+      paymentTransactionId: data['paymentTransactionId'],
     );
   }
 
@@ -112,6 +121,9 @@ class OrderModel {
       'total': total,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+      'paymentStatus': paymentStatus,
+      'paymentMethod': paymentMethod,
+      'paymentTransactionId': paymentTransactionId,
     };
   }
 
