@@ -207,7 +207,6 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Edit Item'),
         actions: [
@@ -456,7 +455,7 @@ class _EditImageStrip extends StatelessWidget {
                       errorWidget: (context, url, err) => Container(
                         width: 110,
                         height: 110,
-                        color: AppColors.background,
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
                         child: const Icon(Icons.local_pizza,
                             color: AppColors.primary),
                       ),
@@ -555,7 +554,7 @@ class _EditImageStrip extends StatelessWidget {
               width: 110,
               height: 110,
               decoration: BoxDecoration(
-                color: AppColors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: AppColors.textGrey.withValues(alpha: 0.3),

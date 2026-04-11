@@ -120,31 +120,49 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     OrderModel order,
     dynamic firestoreService,
   ) async {
-    // Initialize OnePay with customer details
+    // Step 1 — initialize OnePay with customer details
     _onepayService.initialize(
       firstName: _nameController.text.trim().split(' ').first,
       lastName: _nameController.text.trim().split(' ').last,
       phoneNumber: _phoneController.text.trim(),
     );
 
-    // For now, use test card token. In production, customer would select saved card
-    const testCardToken = 'test_card_token_001';
+    // Step 2 — open OnePay card entry screen, wait for a real token
+    final cardCompleter = Completer<String?>();
+    _onepayService.addCard(
+      context,
+      onResult: (status, errorMessage, cardToken) {
+        if (status == true && cardToken != null) {
+          cardCompleter.complete(cardToken);
+        } else {
+          cardCompleter.complete(null); // cancelled or failed
+        }
+      },
+    );
 
-    // Create a Completer to wait for payment result
-    final completer = Completer<bool>();
+    final cardToken = await cardCompleter.future;
 
-    // Process payment
+    if (!mounted) return;
+
+    if (cardToken == null) {
+      // User cancelled or card add failed
+      setState(() => _placing = false);
+      return;
+    }
+
+    // Step 3 — charge the card using the real token
+    final payCompleter = Completer<bool>();
+
     _onepayService.makePayment(
       amount: order.total,
-      customerCardToken: testCardToken,
+      customerCardToken: cardToken,
       onResult: (success, message, transactionId) async {
         if (!mounted) {
-          completer.completeError('Widget not mounted');
+          payCompleter.completeError('Widget not mounted');
           return;
         }
 
         if (success) {
-          // Payment successful — update order with payment info
           final updatedOrder = OrderModel(
             id: order.id,
             orderNumber: order.orderNumber,
@@ -165,15 +183,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             paymentStatus: 'paid',
             paymentTransactionId: transactionId,
           );
-
           try {
-            await _saveOrderToFirestore(updatedOrder, firestoreService, order.orderNumber);
-            completer.complete(true);
+            await _saveOrderToFirestore(
+                updatedOrder, firestoreService, order.orderNumber);
+            payCompleter.complete(true);
           } catch (e) {
-            completer.completeError(e);
+            payCompleter.completeError(e);
           }
         } else {
-          // Payment failed
           if (mounted) {
             setState(() => _placing = false);
             ScaffoldMessenger.of(context).showSnackBar(
@@ -183,14 +200,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
             );
           }
-          completer.complete(false);
+          payCompleter.complete(false);
         }
       },
     );
 
-    // Wait for payment to complete
     try {
-      await completer.future;
+      await payCompleter.future;
     } catch (e) {
       if (mounted) {
         setState(() => _placing = false);
@@ -237,7 +253,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final isShopOpen = shopSettings.valueOrNull?.isOpenRightNow ?? true;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Checkout')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -472,7 +487,9 @@ class _ToggleOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.white,
+          color: selected
+              ? AppColors.primary
+              : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? AppColors.primary : AppColors.textGrey.withValues(alpha: 0.3),
@@ -489,7 +506,9 @@ class _ToggleOption extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: selected ? AppColors.white : AppColors.textDark,
+                color: selected
+                    ? AppColors.white
+                    : Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w700,
               ),
             ),

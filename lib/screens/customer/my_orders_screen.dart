@@ -19,8 +19,7 @@ class MyOrdersScreen extends ConsumerWidget {
     // If somehow opened while logged out, show message
     if (user == null) {
       return Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(title: const Text('My Orders')),
+          appBar: AppBar(title: const Text('My Orders')),
         body: const Center(child: Text('Please log in to view your orders.')),
       );
     }
@@ -29,7 +28,6 @@ class MyOrdersScreen extends ConsumerWidget {
     final ordersAsync = ref.watch(customerOrdersProvider(user.uid));
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('My Orders')),
       body: ordersAsync.when(
         loading: () => const Center(

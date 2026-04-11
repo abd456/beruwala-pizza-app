@@ -22,7 +22,6 @@ class OrderTrackingScreen extends ConsumerWidget {
     final orderAsync = ref.watch(_orderStreamProvider(orderId));
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Track Order'),
         leading: IconButton(

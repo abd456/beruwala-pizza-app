@@ -76,7 +76,6 @@ class _StaffLoginScreenState extends ConsumerState<StaffLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

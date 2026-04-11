@@ -46,7 +46,6 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
     final currentPrice = item.getPrice(_selectedVariation ?? '');
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -180,7 +179,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                             decoration: BoxDecoration(
                               color: selected
                                   ? AppColors.primary
-                                  : AppColors.white,
+                                  : Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: selected
@@ -199,7 +198,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                     fontWeight: FontWeight.w700,
                                     color: selected
                                         ? AppColors.white
-                                        : AppColors.textDark,
+                                        : Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                                 if ((item.variationDetails[entry.key] ?? '')
@@ -275,7 +274,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: Theme.of(context).colorScheme.surface,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.1),

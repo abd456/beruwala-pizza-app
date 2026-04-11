@@ -13,7 +13,6 @@ class AccountScreen extends ConsumerWidget {
     final user = authState.valueOrNull;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Account')),
       body: Padding(
         padding: const EdgeInsets.all(20),

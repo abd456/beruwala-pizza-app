@@ -84,7 +84,6 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
     final next = _nextStatus(order.status);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(title: Text('Order #${order.orderNumber}')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

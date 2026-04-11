@@ -58,7 +58,6 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
     final isSending = otpState.otpState == OtpState.sending;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Sign In')),
       body: Padding(
         padding: const EdgeInsets.all(24),

@@ -19,7 +19,6 @@ class MenuManagementScreen extends ConsumerWidget {
     final menuItems = ref.watch(allMenuItemsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Menu Management'),
       ),
@@ -76,7 +75,7 @@ class MenuManagementScreen extends ConsumerWidget {
                               ),
                             )
                           : Container(
-                              color: AppColors.background,
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
                               child: const Icon(Icons.local_pizza,
                                   color: AppColors.primary),
                             ),

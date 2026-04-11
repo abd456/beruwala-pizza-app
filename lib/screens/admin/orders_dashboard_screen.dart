@@ -17,7 +17,6 @@ class OrdersDashboardScreen extends ConsumerWidget {
     final selectedStatus = ref.watch(selectedOrderStatusFilter);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Orders'),
         automaticallyImplyLeading: false,
@@ -235,9 +234,9 @@ class _FilterChip extends StatelessWidget {
         selected: selected,
         onSelected: (_) => onTap(),
         selectedColor: chipColor,
-        backgroundColor: AppColors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         labelStyle: TextStyle(
-          color: selected ? AppColors.white : AppColors.textDark,
+          color: selected ? AppColors.white : Theme.of(context).colorScheme.onSurface,
           fontWeight: FontWeight.w600,
           fontSize: 13,
         ),

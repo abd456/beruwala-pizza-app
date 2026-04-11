@@ -15,7 +15,6 @@ class HomeScreen extends ConsumerWidget {
     final selectedCategory = ref.watch(selectedCategoryProvider);
     final shopSettings = ref.watch(shopSettingsProvider);
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(AppConstants.appName),
         actions: const [],
@@ -37,7 +36,7 @@ class HomeScreen extends ConsumerWidget {
                 hintText: 'Search menu...',
                 prefixIcon: const Icon(Icons.search, color: AppColors.textGrey),
                 filled: true,
-                fillColor: AppColors.white,
+                fillColor: Theme.of(context).colorScheme.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -170,9 +169,11 @@ class _CategoryChip extends StatelessWidget {
         selected: selected,
         onSelected: (_) => onTap(),
         selectedColor: AppColors.primary,
-        backgroundColor: AppColors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         labelStyle: TextStyle(
-          color: selected ? AppColors.white : AppColors.textDark,
+          color: selected
+              ? AppColors.white
+              : Theme.of(context).colorScheme.onSurface,
           fontWeight: FontWeight.w600,
         ),
         checkmarkColor: AppColors.white,

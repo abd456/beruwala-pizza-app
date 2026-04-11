@@ -142,7 +142,6 @@ class _AddItemScreenState extends ConsumerState<AddItemScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Add Item')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -416,7 +415,7 @@ class _ImageStrip extends StatelessWidget {
               width: 110,
               height: 110,
               decoration: BoxDecoration(
-                color: AppColors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: AppColors.textGrey.withValues(alpha: 0.3),

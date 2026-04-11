@@ -18,7 +18,6 @@ class OrderConfirmationScreen extends StatelessWidget {
     final isDelivery = type == 'delivery';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

@@ -117,7 +117,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Shop Settings'),
         automaticallyImplyLeading: false,

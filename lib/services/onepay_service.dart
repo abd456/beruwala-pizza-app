@@ -57,31 +57,29 @@ class OnepayService {
     };
   }
 
-  /// Add a new card (as per official OnePay docs)
-  void addCard(BuildContext context) {
+  /// Add a new card then retrieve the saved card token.
+  /// [onResult] returns (success, errorMessage, cardToken).
+  void addCard(
+    BuildContext context, {
+    required Function(bool success, String? errorMessage, String? cardToken)
+        onResult,
+  }) {
     _ipg.addNewCard(context);
 
-    // Callback when card add flow completes
     _ipg.addCardEventCallback = (status, errorMessage) {
       debugPrint('Card add result: $status - $errorMessage');
       if (status == true) {
-        debugPrint('✅ Card added successfully');
+        // Card added — now fetch the token via getCustomers
+        _ipg.getCustomers();
+        _ipg.getCustomersEventCallback = (customerList, err) {
+          final token = customerList.isNotEmpty
+              ? customerList.first.toString()
+              : null;
+          debugPrint('Card token: $token');
+          onResult(token != null, err, token);
+        };
       } else {
-        debugPrint('❌ Card add failed: $errorMessage');
-      }
-    };
-  }
-
-  /// Retrieve customer's saved cards (as per official OnePay docs)
-  void getCustomers() {
-    _ipg.getCustomers();
-
-    // Callback when customers are retrieved
-    _ipg.getCustomersEventCallback = (customerList, errorMessage) {
-      if (customerList != null && customerList.isNotEmpty) {
-        debugPrint('✅ Found ${customerList.length} saved card(s)');
-      } else {
-        debugPrint('❌ No saved cards found: $errorMessage');
+        onResult(false, errorMessage, null);
       }
     };
   }

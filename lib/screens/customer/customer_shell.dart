@@ -36,7 +36,7 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
         onTap: (index) => setState(() => _currentIndex = index),
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textGrey,
-        backgroundColor: AppColors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         type: BottomNavigationBarType.fixed,
         items: [
           const BottomNavigationBarItem(
