@@ -6,7 +6,6 @@ import '../../models/menu_item_model.dart';
 import '../../providers/menu_provider.dart';
 import '../../services/storage_service.dart';
 import '../../utils/app_colors.dart';
-import '../../utils/app_constants.dart';
 
 class AddItemScreen extends ConsumerStatefulWidget {
   const AddItemScreen({super.key});
@@ -20,7 +19,7 @@ class _AddItemScreenState extends ConsumerState<AddItemScreen> {
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
 
-  String _selectedCategory = AppConstants.menuCategories.first;
+  String? _selectedCategory;
   bool _available = true;
   final List<XFile> _pickedImages = [];
   bool _saving = false;
@@ -106,7 +105,7 @@ class _AddItemScreenState extends ConsumerState<AddItemScreen> {
       final item = MenuItemModel(
         id: '',
         name: _nameController.text.trim(),
-        category: _selectedCategory,
+        category: _selectedCategory ?? '',
         description: _descController.text.trim(),
         imageUrls: imageUrls,
         available: _available,
@@ -141,6 +140,8 @@ class _AddItemScreenState extends ConsumerState<AddItemScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final categories = categoriesAsync.valueOrNull ?? [];
     return Scaffold(
       appBar: AppBar(title: const Text('Add Item')),
       body: SingleChildScrollView(
@@ -171,19 +172,27 @@ class _AddItemScreenState extends ConsumerState<AddItemScreen> {
               const SizedBox(height: 16),
 
               // Category
-              DropdownButtonFormField<String>(
-                initialValue: _selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  prefixIcon: Icon(Icons.category_outlined),
+              if (categories.isEmpty)
+                const SizedBox(
+                  height: 56,
+                  child: Center(child: LinearProgressIndicator()),
+                )
+              else
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedCategory,
+                  decoration: const InputDecoration(
+                    labelText: 'Category',
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                  hint: const Text('Select category'),
+                  items: categories
+                      .map((c) => DropdownMenuItem(value: c.name, child: Text(c.name)))
+                      .toList(),
+                  validator: (v) => v == null ? 'Select a category' : null,
+                  onChanged: (v) {
+                    if (v != null) setState(() => _selectedCategory = v);
+                  },
                 ),
-                items: AppConstants.menuCategories
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) setState(() => _selectedCategory = v);
-                },
-              ),
               const SizedBox(height: 16),
 
               // Description

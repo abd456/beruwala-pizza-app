@@ -14,6 +14,7 @@ class HomeScreen extends ConsumerWidget {
     final menuItems = ref.watch(searchedMenuItemsProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
     final shopSettings = ref.watch(shopSettingsProvider);
+    final activeCategories = ref.watch(activeCategoriesProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppConstants.appName),
@@ -59,13 +60,13 @@ class HomeScreen extends ConsumerWidget {
                       .read(selectedCategoryProvider.notifier)
                       .state = null,
                 ),
-                ...AppConstants.menuCategories.map((cat) => _CategoryChip(
-                      label: cat,
-                      selected: selectedCategory == cat,
+                ...activeCategories.valueOrNull?.map((cat) => _CategoryChip(
+                      label: cat.name,
+                      selected: selectedCategory == cat.name,
                       onTap: () => ref
                           .read(selectedCategoryProvider.notifier)
-                          .state = cat,
-                    )),
+                          .state = cat.name,
+                    )) ?? [],
               ],
             ),
           ),

@@ -7,7 +7,6 @@ import '../../models/menu_item_model.dart';
 import '../../providers/menu_provider.dart';
 import '../../services/storage_service.dart';
 import '../../utils/app_colors.dart';
-import '../../utils/app_constants.dart';
 
 class EditItemScreen extends ConsumerStatefulWidget {
   const EditItemScreen({super.key});
@@ -206,6 +205,7 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final categories = ref.watch(categoriesProvider).valueOrNull ?? [];
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Item'),
@@ -246,19 +246,29 @@ class _EditItemScreenState extends ConsumerState<EditItemScreen> {
               ),
               const SizedBox(height: 16),
 
-              DropdownButtonFormField<String>(
-                initialValue: _selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  prefixIcon: Icon(Icons.category_outlined),
+              if (categories.isEmpty)
+                const SizedBox(
+                  height: 56,
+                  child: Center(child: LinearProgressIndicator()),
+                )
+              else
+                DropdownButtonFormField<String>(
+                  initialValue: categories.any((c) => c.name == _selectedCategory)
+                      ? _selectedCategory
+                      : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Category',
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                  hint: const Text('Select category'),
+                  items: categories
+                      .map((c) => DropdownMenuItem(value: c.name, child: Text(c.name)))
+                      .toList(),
+                  validator: (v) => v == null ? 'Select a category' : null,
+                  onChanged: (v) {
+                    if (v != null) setState(() => _selectedCategory = v);
+                  },
                 ),
-                items: AppConstants.menuCategories
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) setState(() => _selectedCategory = v);
-                },
-              ),
               const SizedBox(height: 16),
 
               TextFormField(

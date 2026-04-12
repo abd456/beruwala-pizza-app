@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/shop_settings_model.dart';
 import '../../providers/menu_provider.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_routes.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -126,6 +127,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Categories ────────────────────────────────────────────────
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.category_outlined,
+                    color: AppColors.primary),
+                title: const Text('Manage Categories',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: const Text('Add or remove menu categories'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.categories),
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // ── Closed Now toggle ──────────────────────────────────────────
             Card(
               child: Padding(
@@ -144,7 +160,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   value: _isManuallyClosedNow,
                   activeThumbColor: AppColors.primary,
-                  onChanged: (v) => setState(() => _isManuallyClosedNow = v),
+                  onChanged: (v) {
+                    setState(() => _isManuallyClosedNow = v);
+                    // Save immediately so customers see the change right away
+                    ref.read(firestoreServiceProvider).updateShopSettings(
+                      {'isManuallyClosedNow': v},
+                    );
+                  },
                 ),
               ),
             ),

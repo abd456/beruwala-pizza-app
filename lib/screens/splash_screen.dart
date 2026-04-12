@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../utils/app_routes.dart';
+import '../utils/app_secrets.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -46,11 +48,38 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     Navigator.pushReplacementNamed(context, AppRoutes.home);
   }
 
-  void _onLogoTap() {
+  Future<void> _onLogoTap() async {
     _tapCount++;
+
+    // Dev shortcut: single tap auto-logs in as admin (debug builds only)
+    if (kDebugMode && AppSecrets.devAutoLogin && _tapCount == 1) {
+      _navigated = true;
+      try {
+        final authService = ref.read(authServiceProvider);
+        await authService.staffLogin(
+          email: AppSecrets.devEmail,
+          password: AppSecrets.devPassword,
+        );
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            AppRoutes.ordersDashboard,
+            (route) => false,
+          );
+        }
+      } catch (_) {
+        // If auto-login fails, fall back to normal staff login
+        _navigated = true;
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, AppRoutes.staffLogin);
+        }
+      }
+      return;
+    }
+
     if (_tapCount >= AppConstants.staffAccessTapCount) {
       _tapCount = 0;
-      _navigated = true; // prevent auto-navigation
+      _navigated = true;
       Navigator.pushReplacementNamed(context, AppRoutes.staffLogin);
     }
   }
@@ -65,18 +94,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           children: [
             GestureDetector(
               onTap: _onLogoTap,
-              child: Container(
+              child: Image.asset(
+                'assets/images/logo_tp.png',
                 width: 150,
                 height: 150,
-                decoration: const BoxDecoration(
-                  color: AppColors.accent,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.local_pizza,
-                  size: 80,
-                  color: AppColors.primary,
-                ),
               ),
             ),
             const SizedBox(height: 24),

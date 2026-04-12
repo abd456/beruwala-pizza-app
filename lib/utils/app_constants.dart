@@ -21,6 +21,7 @@ class AppConstants {
   static const String ordersCollection = 'orders';
   static const String settingsCollection = 'settings';
   static const String shopSettingsDocument = 'shopSettings';
+  static const String categoriesCollection = 'categories';
 
   // Roles
   static const String customerRole = 'customer';

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/category_model.dart';
 import '../models/menu_item_model.dart';
 import '../models/order_model.dart';
 import '../models/shop_settings_model.dart';
@@ -142,6 +143,35 @@ class FirestoreService {
       tx.set(counterRef, {'count': next}, SetOptions(merge: true));
       return next;
     });
+  }
+
+  // ─── Categories ───
+
+  Stream<List<CategoryModel>> getCategories() {
+    return _firestore
+        .collection(AppConstants.categoriesCollection)
+        .orderBy('order')
+        .snapshots()
+        .map((s) => s.docs.map(CategoryModel.fromFirestore).toList());
+  }
+
+  Future<void> addCategory(String name) async {
+    // Count existing to set order
+    final snap = await _firestore
+        .collection(AppConstants.categoriesCollection)
+        .get();
+    await _firestore.collection(AppConstants.categoriesCollection).add({
+      'name': name,
+      'order': snap.size,
+      'createdAt': Timestamp.now(),
+    });
+  }
+
+  Future<void> deleteCategory(String id) async {
+    await _firestore
+        .collection(AppConstants.categoriesCollection)
+        .doc(id)
+        .delete();
   }
 
   // ─── Shop Settings ───
