@@ -88,3 +88,6 @@ coverage/
 
 firebase_options.dart
 lib/utils/app_secrets.dart
+
+# Cloud Functions
+functions/node_modules/

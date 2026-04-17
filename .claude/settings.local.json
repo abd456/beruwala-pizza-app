@@ -8,7 +8,8 @@
       "Bash(python -c ':*)",
       "Bash(powershell -Command ':*)",
       "Bash(grep -v \"foregroundColor\\\\|strokeWidth\\\\|icon\\\\|Text\\\\|Icon\\\\|color: AppColors.white,  //\")",
-      "Bash(firebase deploy:*)"
+      "Bash(firebase deploy:*)",
+      "Bash(firebase functions:list)"
     ]
   }
 }

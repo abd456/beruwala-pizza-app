@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../utils/app_routes.dart';
+import '../services/notification_service.dart';
 import '../utils/app_secrets.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -32,8 +33,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final authState = ref.read(authStateProvider);
     final user = authState.valueOrNull;
 
-    // If admin is logged in, go to dashboard
+    // If logged in, refresh FCM token and route accordingly
     if (user != null) {
+      await NotificationService().init(user.uid);
       final authService = ref.read(authServiceProvider);
       final userModel = await authService.getUserFromFirestore(user.uid);
       if (!mounted) return;
@@ -56,10 +58,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       _navigated = true;
       try {
         final authService = ref.read(authServiceProvider);
-        await authService.staffLogin(
+        final cred = await authService.staffLogin(
           email: AppSecrets.devEmail,
           password: AppSecrets.devPassword,
         );
+        await NotificationService().init(cred.user!.uid);
         if (mounted) {
           Navigator.pushNamedAndRemoveUntil(
             context,

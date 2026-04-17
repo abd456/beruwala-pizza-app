@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 
 // Auth service provider
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -88,6 +89,8 @@ class PhoneAuthNotifier extends StateNotifier<PhoneAuthState> {
         phone: phoneNumber,
       );
     }
+    // Register FCM token for push notifications
+    await NotificationService().init(uid);
   }
 
   void reset() {

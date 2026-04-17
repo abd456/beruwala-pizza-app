@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/notification_service.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_constants.dart';
 import '../../utils/app_routes.dart';
@@ -43,6 +44,7 @@ class _StaffLoginScreenState extends ConsumerState<StaffLoginScreen> {
         password: _passwordController.text,
       );
 
+      await NotificationService().init(cred.user!.uid);
       final isAdmin = await authService.isAdmin(cred.user!.uid);
       if (!isAdmin) {
         await authService.signOut();

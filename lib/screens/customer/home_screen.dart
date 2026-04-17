@@ -25,7 +25,11 @@ class HomeScreen extends ConsumerWidget {
           // Closed banner — only shown when the shop is confirmed closed
           if (shopSettings.valueOrNull != null &&
               !shopSettings.valueOrNull!.isOpenRightNow)
-            _ClosedBanner(nextOpen: shopSettings.valueOrNull!.nextOpenDescription),
+            _ClosedBanner(
+              nextOpen: shopSettings.valueOrNull!.isManuallyClosedNow
+                  ? null
+                  : shopSettings.valueOrNull!.nextOpenDescription,
+            ),
 
           // Search bar
           Padding(
