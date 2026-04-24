@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import 'menu_provider.dart';
 
 // Auth service provider
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -12,12 +13,13 @@ final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authServiceProvider).authStateChanges;
 });
 
-// Current user model from Firestore
-final userModelProvider = FutureProvider<UserModel?>((ref) async {
+// Live stream of the current user's Firestore document.
+// Automatically reflects any profile or address updates.
+final userModelProvider = StreamProvider<UserModel?>((ref) {
   final authState = ref.watch(authStateProvider);
   final user = authState.valueOrNull;
-  if (user == null) return null;
-  return ref.read(authServiceProvider).getUserFromFirestore(user.uid);
+  if (user == null) return Stream.value(null);
+  return ref.read(firestoreServiceProvider).getUserStream(user.uid);
 });
 
 // Phone OTP state

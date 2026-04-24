@@ -15,6 +15,7 @@ import '../screens/admin/edit_item_screen.dart';
 import '../screens/admin/settings_screen.dart';
 import '../screens/admin/categories_screen.dart';
 import '../screens/customer/my_orders_screen.dart';
+import '../screens/customer/edit_profile_screen.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -38,6 +39,7 @@ class AppRoutes {
   static const String myOrders = '/my-orders';
   static const String shopSettings = '/shop-settings';
   static const String categories = '/categories';
+  static const String editProfile = '/edit-profile';
 
   static Map<String, WidgetBuilder> get routes => {
     splash: (_) => const SplashScreen(),
@@ -56,6 +58,7 @@ class AppRoutes {
     addItem: (_) => const AddItemScreen(),
     editItem: (_) => const EditItemScreen(),
     myOrders: (_) => const MyOrdersScreen(),
+    editProfile: (_) => const EditProfileScreen(),
     shopSettings: (_) => const SettingsScreen(),
     categories: (_) => const CategoriesScreen(),
   };

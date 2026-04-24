@@ -3,6 +3,7 @@ import '../models/category_model.dart';
 import '../models/menu_item_model.dart';
 import '../models/order_model.dart';
 import '../models/shop_settings_model.dart';
+import '../models/user_model.dart';
 import '../utils/app_constants.dart';
 
 class FirestoreService {
@@ -172,6 +173,37 @@ class FirestoreService {
         .collection(AppConstants.categoriesCollection)
         .doc(id)
         .delete();
+  }
+
+  // ─── User Profile ───
+
+  /// Live stream of a user document — auto-refreshes on any field change.
+  Stream<UserModel?> getUserStream(String uid) {
+    return _firestore
+        .collection(AppConstants.usersCollection)
+        .doc(uid)
+        .snapshots()
+        .map((doc) => doc.exists ? UserModel.fromFirestore(doc) : null);
+  }
+
+  Future<void> updateUserProfile(
+      String uid, {String? name, String? phone}) async {
+    final data = <String, dynamic>{};
+    if (name != null) data['name'] = name;
+    if (phone != null) data['phone'] = phone;
+    if (data.isEmpty) return;
+    await _firestore
+        .collection(AppConstants.usersCollection)
+        .doc(uid)
+        .update(data);
+  }
+
+  Future<void> saveUserAddresses(
+      String uid, List<SavedAddress> addresses) async {
+    await _firestore
+        .collection(AppConstants.usersCollection)
+        .doc(uid)
+        .update({'addresses': addresses.map((a) => a.toMap()).toList()});
   }
 
   // ─── Shop Settings ───

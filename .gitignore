@@ -91,3 +91,8 @@ lib/utils/app_secrets.dart
 
 # Cloud Functions
 functions/node_modules/
+
+# Release signing
+android/upload-keystore.jks
+android/upload-keystore-new.jks
+android/key.properties

@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
@@ -6,7 +6,6 @@ import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../utils/app_routes.dart';
 import '../services/notification_service.dart';
-import '../utils/app_secrets.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -16,24 +15,48 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
-  int _tapCount = 0;
   bool _navigated = false;
+  bool _minDelayDone = false;
+  bool _authResolved = false;
+  User? _resolvedUser;
 
   @override
   void initState() {
     super.initState();
-    _navigateAfterDelay();
+    _startMinDelay();
+    _waitForAuth();
   }
 
-  Future<void> _navigateAfterDelay() async {
-    await Future.delayed(const Duration(seconds: 5));
-    if (!mounted || _navigated) return;
+  void _startMinDelay() {
+    Future.delayed(const Duration(seconds: 2)).then((_) {
+      if (!mounted) return;
+      _minDelayDone = true;
+      _tryNavigate();
+    });
+  }
+
+  Future<void> _waitForAuth() async {
+    try {
+      final user = await ref.read(authStateProvider.future);
+      if (!mounted) return;
+      _resolvedUser = user;
+    } catch (_) {
+      // Auth error — treat as logged out
+    }
+    if (!mounted) return;
+    _authResolved = true;
+    _tryNavigate();
+  }
+
+  void _tryNavigate() {
+    if (_navigated || !mounted || !_minDelayDone || !_authResolved) return;
+    _doNavigate(_resolvedUser);
+  }
+
+  Future<void> _doNavigate(User? user) async {
+    if (_navigated || !mounted) return;
     _navigated = true;
 
-    final authState = ref.read(authStateProvider);
-    final user = authState.valueOrNull;
-
-    // If logged in, refresh FCM token and route accordingly
     if (user != null) {
       await NotificationService().init(user.uid);
       final authService = ref.read(authServiceProvider);
@@ -46,45 +69,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       }
     }
 
-    // Everyone else (logged in customer or guest) goes to menu
+    if (!mounted) return;
     Navigator.pushReplacementNamed(context, AppRoutes.home);
-  }
-
-  Future<void> _onLogoTap() async {
-    _tapCount++;
-
-    // Dev shortcut: single tap auto-logs in as admin (debug builds only)
-    if (kDebugMode && AppSecrets.devAutoLogin && _tapCount == 1) {
-      _navigated = true;
-      try {
-        final authService = ref.read(authServiceProvider);
-        final cred = await authService.staffLogin(
-          email: AppSecrets.devEmail,
-          password: AppSecrets.devPassword,
-        );
-        await NotificationService().init(cred.user!.uid);
-        if (mounted) {
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            AppRoutes.ordersDashboard,
-            (route) => false,
-          );
-        }
-      } catch (_) {
-        // If auto-login fails, fall back to normal staff login
-        _navigated = true;
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, AppRoutes.staffLogin);
-        }
-      }
-      return;
-    }
-
-    if (_tapCount >= AppConstants.staffAccessTapCount) {
-      _tapCount = 0;
-      _navigated = true;
-      Navigator.pushReplacementNamed(context, AppRoutes.staffLogin);
-    }
   }
 
   @override
@@ -95,13 +81,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            GestureDetector(
-              onTap: _onLogoTap,
-              child: Image.asset(
-                'assets/images/logo_tp.png',
-                width: 150,
-                height: 150,
-              ),
+            Image.asset(
+              'assets/images/logo_tp.png',
+              width: 150,
+              height: 150,
             ),
             const SizedBox(height: 24),
             Text(

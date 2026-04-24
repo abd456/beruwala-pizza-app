@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/order_model.dart';
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/menu_provider.dart';
@@ -28,6 +29,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _placing = false;
   String _paymentMethod = 'cash'; // 'cash' or 'card'
   late OnepayService _onepayService;
+  bool _prefilled = false;
+  String? _selectedAddressId; // id of the saved address in use (if any)
 
   @override
   void initState() {
@@ -228,6 +231,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final orderId = await firestoreService.createOrder(order);
     ref.read(cartProvider.notifier).clearCart();
 
+    // Auto-save delivery details as a new address if not already stored
+    if (_isDelivery) {
+      final user = ref.read(userModelProvider).valueOrNull;
+      if (user != null) {
+        await _maybeSaveAddress(
+          user,
+          order.address,
+          order.customerName,
+          order.customerPhone,
+        );
+      }
+    }
+
     if (mounted) {
       Navigator.pushNamedAndRemoveUntil(
         context,
@@ -243,6 +259,68 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
+  /// Pre-fill on first load:
+  /// - If user has a default saved address → fill all three fields from it.
+  /// - Otherwise → fill name only from account; phone and address left blank.
+  void _prefillFromUser(UserModel user) {
+    if (_prefilled) return;
+    _prefilled = true;
+    final def = user.defaultAddress;
+    if (def != null) {
+      _nameController.text =
+          def.contactName.isNotEmpty ? def.contactName : user.name;
+      _phoneController.text = def.contactPhone
+          .replaceFirst(AppConstants.countryCode, '')
+          .replaceFirst(' ', '');
+      _addressController.text = def.address;
+      _selectedAddressId = def.id;
+    } else {
+      // No saved addresses yet — hint name and login number as starting point
+      _nameController.text = user.name;
+      _phoneController.text = user.phone
+          .replaceFirst(AppConstants.countryCode, '')
+          .replaceFirst(' ', '');
+    }
+  }
+
+  /// Save delivery details as a new address after a successful order,
+  /// unless an identical entry already exists.
+  Future<void> _maybeSaveAddress(
+    UserModel user,
+    String address,
+    String contactName,
+    String contactPhone,
+  ) async {
+    if (address.isEmpty) return;
+    final alreadySaved = user.addresses.any((a) =>
+        a.address.trim() == address.trim() &&
+        a.contactName.trim() == contactName.trim() &&
+        a.contactPhone.trim() == contactPhone.trim());
+    if (alreadySaved) return;
+
+    final existing = List<SavedAddress>.from(user.addresses);
+    final labels = existing.map((a) => a.label).toSet();
+    String label = 'Home';
+    if (labels.contains('Home')) label = 'Work';
+    if (labels.contains('Work')) label = 'Address ${existing.length + 1}';
+
+    existing.add(SavedAddress(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      label: label,
+      address: address,
+      contactName: contactName,
+      contactPhone: contactPhone,
+      isDefault: existing.isEmpty,
+    ));
+    try {
+      await ref
+          .read(firestoreServiceProvider)
+          .saveUserAddresses(user.uid, existing);
+    } catch (_) {
+      // Non-critical — silently ignore
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cartItems = ref.watch(cartProvider);
@@ -251,6 +329,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final total = subtotal + deliveryFee;
     final shopSettings = ref.watch(shopSettingsProvider);
     final isShopOpen = shopSettings.valueOrNull?.isOpenRightNow ?? true;
+    final userModel = ref.watch(userModelProvider).valueOrNull;
+
+    // Pre-fill when user data first arrives via the stream
+    ref.listen(userModelProvider, (_, next) {
+      final user = next.valueOrNull;
+      if (user != null && !_prefilled && mounted) _prefillFromUser(user);
+    });
+
+    // Also handle the case where data is already loaded before first build
+    if (userModel != null && !_prefilled) {
+      Future.microtask(() {
+        if (mounted && !_prefilled) _prefillFromUser(userModel);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
@@ -317,9 +409,53 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
               if (_isDelivery) ...[
                 const SizedBox(height: 12),
+                // Saved address chips
+                if (userModel != null && userModel.addresses.isNotEmpty) ...[
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: userModel.addresses.map((addr) {
+                        final selected = _selectedAddressId == addr.id;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(addr.label),
+                            selected: selected,
+                            selectedColor: AppColors.primary,
+                            labelStyle: TextStyle(
+                              color: selected ? AppColors.white : null,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            onSelected: (_) {
+                              setState(() {
+                                _selectedAddressId = addr.id;
+                                _addressController.text = addr.address;
+                                if (addr.contactName.isNotEmpty) {
+                                  _nameController.text = addr.contactName;
+                                }
+                                if (addr.contactPhone.isNotEmpty) {
+                                  _phoneController.text = addr.contactPhone
+                                      .replaceFirst(AppConstants.countryCode, '')
+                                      .replaceFirst(' ', '');
+                                }
+                              });
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 TextFormField(
                   controller: _addressController,
                   maxLines: 2,
+                  onChanged: (_) {
+                    // If user manually types, deselect saved address
+                    if (_selectedAddressId != null) {
+                      setState(() => _selectedAddressId = null);
+                    }
+                  },
                   decoration: const InputDecoration(
                     labelText: 'Delivery Address',
                     prefixIcon: Icon(Icons.location_on_outlined),

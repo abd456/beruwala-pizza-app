@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/notification_service.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_routes.dart';
 
@@ -25,6 +26,9 @@ class AccountScreen extends ConsumerWidget {
                 email: user.email ?? '',
                 uid: user.uid,
                 onLogout: () async {
+                  // Clear FCM token before signing out so the device
+                  // stops receiving notifications for this account.
+                  await NotificationService().clearToken(user.uid);
                   await ref.read(authServiceProvider).signOut();
                 },
               ),
@@ -142,6 +146,19 @@ class _LoggedInView extends ConsumerWidget {
           title: const Text('My Orders'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.pushNamed(context, AppRoutes.myOrders),
+        ),
+
+        const Divider(),
+
+        // Edit Profile tile
+        ListTile(
+          leading: const Icon(
+            Icons.edit_outlined,
+            color: AppColors.primary,
+          ),
+          title: const Text('Edit Profile & Addresses'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.pushNamed(context, AppRoutes.editProfile),
         ),
 
         const Divider(),

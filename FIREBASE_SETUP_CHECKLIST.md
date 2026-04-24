@@ -26,7 +26,7 @@
 7. Click **Next** twice, then **Continue to console**
 
 ✅ Android app registered.
-
+C:\Users\hp\Documents\GitHub\beruwala_pizza\beruwala_pizza.iml
 ---
 
 ## **STEP 3: Add iOS App**

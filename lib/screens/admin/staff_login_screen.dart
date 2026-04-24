@@ -82,6 +82,13 @@ class _StaffLoginScreenState extends ConsumerState<StaffLoginScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: AppColors.textDark,
+        leading: BackButton(
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+            context,
+            AppRoutes.home,
+            (route) => false,
+          ),
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

@@ -63,9 +63,12 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
         padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: SizedBox(
+            height: double.infinity,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Spacer(),
               const SizedBox(height: 32),
               Text(
                 'Enter your phone number',
@@ -118,8 +121,27 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
                       : const Text('Send Code'),
                 ),
               ),
+              const Spacer(),
+              // Staff login link — visible but unobtrusive
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    AppRoutes.staffLogin,
+                  ),
+                  child: Text(
+                    'Staff Login',
+                    style: TextStyle(
+                      color: AppColors.textGrey.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
             ],
           ),
+        ),
         ),
       ),
     );
